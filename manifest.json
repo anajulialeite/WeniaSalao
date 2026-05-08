@@ -1,0 +1,22 @@
+{
+  "name": "Salão Wenia — Simulador de Cabelo",
+  "short_name": "Salão Wenia",
+  "description": "Simulador virtual de cores e cortes de cabelo. Experimente antes de ir ao salão!",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
