@@ -183,9 +183,33 @@
         <!-- Cut panel -->
         <div class="sim-panel" id="panel-cut">
           <p class="panel-label">Escolha o estilo</p>
-          <div class="style-gallery" id="style-gallery">
-            <p class="coming-soon">Em breve — cortes serão adicionados no próximo sprint</p>
+          <div class="style-categories">
+            <button class="style-cat-btn active" data-category="all">Todos</button>
+            <button class="style-cat-btn" data-category="curto">Curtos</button>
+            <button class="style-cat-btn" data-category="medio">Médios</button>
+            <button class="style-cat-btn" data-category="longo">Longos</button>
           </div>
+          <div class="style-gallery" id="style-gallery">
+            <!-- Hairstyle cards injected by JS -->
+          </div>
+          <div class="overlay-controls hidden" id="overlay-controls">
+            <button id="btn-size-down" class="btn-overlay-ctrl" aria-label="Diminuir">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+            </button>
+            <button id="btn-size-up" class="btn-overlay-ctrl" aria-label="Aumentar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button id="btn-flip" class="btn-overlay-ctrl" aria-label="Espelhar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 20V4"/></svg>
+            </button>
+            <button id="btn-reset-overlay" class="btn-overlay-ctrl" aria-label="Resetar posição">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            </button>
+            <button id="btn-remove-style" class="btn-overlay-ctrl btn-overlay-remove" aria-label="Remover corte">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <p class="overlay-hint hidden" id="overlay-hint">👆 Arraste, redimensione e gire o corte sobre a foto</p>
         </div>
       </div>
 

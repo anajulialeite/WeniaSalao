@@ -8,6 +8,19 @@ import { navigateTo } from './ui/screens.js';
 import { setupCaptureHandlers, resetCapture } from './modules/camera.js';
 import { initSegmenter, segmentHair, isSegmenterReady } from './modules/segmenter.js';
 import { applyHairColor, HAIR_COLORS } from './modules/colorizer.js';
+import {
+  initHairstyleOverlay,
+  setCanvasDimensions,
+  loadHairstyle,
+  removeHairstyle,
+  isHairstyleActive,
+  getActiveHairstyleId,
+  drawHairstyleOverlay,
+  drawOverlayHandles,
+  resetOverlayPosition,
+  HAIRSTYLE_CATALOG,
+} from './modules/hairstyle.js';
+import { downloadResult, shareViaWhatsApp, shareNative } from './modules/share.js';
 
 // ==================== STATE ====================
 const state = {
@@ -17,6 +30,7 @@ const state = {
   selectedColor: null,      // { name, color }
   intensity: 50,            // 0-100
   resultCanvas: null,       // Canvas with colored result
+  activeCategory: 'all',    // Hairstyle filter category
 };
 
 // ==================== INITIALIZATION ====================
@@ -27,6 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
   setupTabs();
   setupIntensitySlider();
   setupResultActions();
+  setupHairstyleGallery();
+  setupCategoryFilters();
+
+  // Initialize hairstyle overlay system
+  const canvasContainer = document.getElementById('canvas-container');
+  initHairstyleOverlay(canvasContainer, onOverlayUpdate);
 
   // Pre-load segmenter in background after 2 seconds
   setTimeout(() => {
@@ -94,7 +114,6 @@ function onPhotoReady(img) {
 // ==================== SIMULATOR ====================
 async function prepareSimulator() {
   const canvas = document.getElementById('main-canvas');
-  const container = document.getElementById('canvas-container');
   const loading = document.getElementById('canvas-loading');
   const img = state.currentPhoto;
 
@@ -113,6 +132,9 @@ async function prepareSimulator() {
   state.originalCanvas.width = canvas.width;
   state.originalCanvas.height = canvas.height;
   state.originalCanvas.getContext('2d').drawImage(canvas, 0, 0);
+
+  // Set canvas dimensions for hairstyle overlay
+  setCanvasDimensions(canvas.width, canvas.height);
 
   // Show loading & run segmentation
   loading.classList.remove('hidden');
@@ -139,6 +161,12 @@ function resetSimulation() {
   document.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('active'));
   document.getElementById('intensity-slider').value = 50;
 
+  // Remove hairstyle overlay
+  removeHairstyle();
+  document.querySelectorAll('.style-card').forEach((c) => c.classList.remove('active'));
+  document.getElementById('overlay-controls').classList.add('hidden');
+  document.getElementById('overlay-hint').classList.add('hidden');
+
   // Redraw original
   if (state.originalCanvas) {
     const canvas = document.getElementById('main-canvas');
@@ -146,6 +174,59 @@ function resetSimulation() {
     ctx.drawImage(state.originalCanvas, 0, 0);
     state.resultCanvas = null;
   }
+}
+
+// ==================== RENDERING ====================
+
+/**
+ * Composite render: original photo + color + hairstyle overlay
+ */
+function renderCanvas() {
+  const mainCanvas = document.getElementById('main-canvas');
+  if (!mainCanvas || !state.originalCanvas) return;
+
+  const ctx = mainCanvas.getContext('2d');
+  const w = mainCanvas.width;
+  const h = mainCanvas.height;
+
+  // Layer 1: Start with original or color-modified image
+  if (state.selectedColor && state.hairMask) {
+    const coloredCanvas = applyHairColor(
+      state.originalCanvas,
+      state.hairMask,
+      state.selectedColor.color,
+      state.intensity
+    );
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(coloredCanvas, 0, 0);
+    state.resultCanvas = coloredCanvas;
+  } else {
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(state.originalCanvas, 0, 0);
+    state.resultCanvas = null;
+  }
+
+  // Layer 2: Hairstyle overlay
+  if (isHairstyleActive()) {
+    const displayRect = mainCanvas.getBoundingClientRect();
+    drawHairstyleOverlay(ctx, displayRect.width, displayRect.height);
+    drawOverlayHandles(ctx);
+
+    // Save result including overlay
+    const compositeCanvas = document.createElement('canvas');
+    compositeCanvas.width = w;
+    compositeCanvas.height = h;
+    const compCtx = compositeCanvas.getContext('2d');
+    compCtx.drawImage(mainCanvas, 0, 0);
+    state.resultCanvas = compositeCanvas;
+  }
+}
+
+/**
+ * Called when the hairstyle overlay position/scale changes.
+ */
+function onOverlayUpdate() {
+  renderCanvas();
 }
 
 // ==================== COLOR PALETTE ====================
@@ -165,7 +246,7 @@ function setupColorPalette() {
       swatch.classList.add('active');
 
       state.selectedColor = c;
-      applyCurrentColor();
+      renderCanvas();
     });
 
     palette.appendChild(swatch);
@@ -177,28 +258,9 @@ function setupIntensitySlider() {
   slider.addEventListener('input', (e) => {
     state.intensity = parseInt(e.target.value, 10);
     if (state.selectedColor) {
-      applyCurrentColor();
+      renderCanvas();
     }
   });
-}
-
-function applyCurrentColor() {
-  if (!state.originalCanvas || !state.hairMask || !state.selectedColor) return;
-
-  const resultCanvas = applyHairColor(
-    state.originalCanvas,
-    state.hairMask,
-    state.selectedColor.color,
-    state.intensity
-  );
-
-  // Draw result to main canvas
-  const mainCanvas = document.getElementById('main-canvas');
-  const ctx = mainCanvas.getContext('2d');
-  ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
-  ctx.drawImage(resultCanvas, 0, 0);
-
-  state.resultCanvas = resultCanvas;
 }
 
 // ==================== TABS ====================
@@ -219,6 +281,96 @@ function setupTabs() {
   });
 }
 
+// ==================== HAIRSTYLE GALLERY ====================
+function setupHairstyleGallery() {
+  const gallery = document.getElementById('style-gallery');
+
+  HAIRSTYLE_CATALOG.forEach((style) => {
+    const card = document.createElement('div');
+    card.className = 'style-card';
+    card.dataset.id = style.id;
+    card.dataset.category = style.category;
+
+    const thumb = document.createElement('div');
+    thumb.className = 'style-card-thumb';
+
+    const img = document.createElement('img');
+    img.src = `./hairstyles/${style.id}.png`;
+    img.alt = style.name;
+    img.loading = 'lazy';
+    thumb.appendChild(img);
+
+    const name = document.createElement('span');
+    name.className = 'style-card-name';
+    name.textContent = style.name;
+
+    card.appendChild(thumb);
+    card.appendChild(name);
+
+    card.addEventListener('click', () => {
+      selectHairstyle(style.id, card);
+    });
+
+    gallery.appendChild(card);
+  });
+}
+
+function setupCategoryFilters() {
+  const buttons = document.querySelectorAll('.style-cat-btn');
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      buttons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      state.activeCategory = btn.dataset.category;
+      filterGallery(state.activeCategory);
+    });
+  });
+}
+
+function filterGallery(category) {
+  const cards = document.querySelectorAll('.style-card');
+  cards.forEach((card) => {
+    if (category === 'all' || card.dataset.category === category) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+
+async function selectHairstyle(hairstyleId, cardElement) {
+  // Update card active state
+  document.querySelectorAll('.style-card').forEach((c) => c.classList.remove('active'));
+  cardElement.classList.add('active');
+
+  // Show overlay controls and hint
+  document.getElementById('overlay-controls').classList.remove('hidden');
+  document.getElementById('overlay-hint').classList.remove('hidden');
+
+  // Load the hairstyle overlay
+  try {
+    await loadHairstyle(hairstyleId, `./hairstyles/${hairstyleId}.png`);
+  } catch (err) {
+    console.error('Failed to load hairstyle:', err);
+    alert('Não foi possível carregar o estilo. Tente outro.');
+  }
+}
+
+// Setup remove style button separately (needs to be after DOM)
+document.addEventListener('DOMContentLoaded', () => {
+  const btnRemove = document.getElementById('btn-remove-style');
+  if (btnRemove) {
+    btnRemove.addEventListener('click', () => {
+      removeHairstyle();
+      document.querySelectorAll('.style-card').forEach((c) => c.classList.remove('active'));
+      document.getElementById('overlay-controls').classList.add('hidden');
+      document.getElementById('overlay-hint').classList.add('hidden');
+      renderCanvas();
+    });
+  }
+});
+
 // ==================== RESULT SCREEN ====================
 function prepareResult() {
   const beforeCanvas = document.getElementById('result-canvas-before');
@@ -234,7 +386,7 @@ function prepareResult() {
   beforeCanvas.height = h;
   beforeCanvas.getContext('2d').drawImage(state.originalCanvas, 0, 0);
 
-  // After canvas
+  // After canvas — use the composite result
   afterCanvas.width = w;
   afterCanvas.height = h;
   const afterCtx = afterCanvas.getContext('2d');
@@ -294,11 +446,6 @@ function setupResultActions() {
   // Download
   document.getElementById('btn-download').addEventListener('click', () => {
     const canvas = state.resultCanvas || state.originalCanvas;
-    if (!canvas) return;
-
-    const link = document.createElement('a');
-    link.download = 'salao-wenia-simulacao.jpg';
-    link.href = canvas.toDataURL('image/jpeg', 0.92);
-    link.click();
+    downloadResult(canvas);
   });
 }
