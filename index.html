@@ -8,21 +8,60 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Salão Wenia — Simulador Virtual de Cabelo" />
+  <meta property="og:description" content="Experimente cores e cortes de cabelo virtualmente! 100% gratuito, direto no celular." />
+  <meta property="og:image" content="./icons/icon-512.png" />
+  <meta property="og:url" content="https://anajulialeite.github.io/WeniaSalao/" />
+  <meta property="og:locale" content="pt_BR" />
+
   <title>Salão Wenia — Simulador de Cabelo</title>
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts — Preconnect + Preload -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
 
-  <!-- PWA Manifest -->
+  <!-- DNS Prefetch for MediaPipe CDN -->
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+  <link rel="dns-prefetch" href="https://storage.googleapis.com" />
+
+  <!-- PWA Manifest + Icons -->
   <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
 
   <link rel="stylesheet" href="./src/styles/index.css" />
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('✅ SW registered:', reg.scope))
+          .catch((err) => console.warn('SW registration failed:', err));
+      });
+    }
+  </script>
 </head>
 <body>
   <div id="app">
     
+    <!-- ==================== COMPATIBILITY OVERLAY ==================== -->
+    <div id="compat-overlay" class="compat-overlay hidden">
+      <div class="compat-content">
+        <div class="compat-icon">⚠️</div>
+        <h2 class="compat-title">Navegador Incompatível</h2>
+        <p class="compat-desc">Seu navegador não suporta alguns recursos necessários para o simulador:</p>
+        <ul class="compat-issues"></ul>
+        <p class="compat-suggestion">Tente abrir no <strong>Google Chrome</strong> ou <strong>Safari</strong> atualizado.</p>
+      </div>
+    </div>
+
+    <!-- ==================== TOAST CONTAINER ==================== -->
+    <div id="toast-container" class="toast-container"></div>
+
     <!-- ==================== TELA 1: SPLASH / HOME ==================== -->
     <section id="screen-home" class="screen active">
       <div class="home-bg-glow"></div>
@@ -61,7 +100,7 @@
           </div>
         </div>
 
-        <button id="btn-start" class="btn-primary btn-glow">
+        <button id="btn-start" class="btn-primary btn-glow btn-ripple">
           <span>Começar Simulação</span>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -75,7 +114,7 @@
     <!-- ==================== TELA 2: CAPTURA ==================== -->
     <section id="screen-capture" class="screen">
       <header class="screen-header">
-        <button id="btn-back-capture" class="btn-icon" aria-label="Voltar">
+        <button id="btn-back-capture" class="btn-icon btn-ripple" aria-label="Voltar">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
@@ -101,14 +140,14 @@
         </div>
 
         <div class="capture-actions">
-          <button id="btn-camera" class="btn-capture">
+          <button id="btn-camera" class="btn-capture btn-ripple">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
               <circle cx="12" cy="13" r="4"/>
             </svg>
             <span>Câmera</span>
           </button>
-          <button id="btn-gallery" class="btn-capture">
+          <button id="btn-gallery" class="btn-capture btn-ripple">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
               <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -120,7 +159,7 @@
           <input type="file" id="camera-input" accept="image/*" capture="user" class="hidden" />
         </div>
 
-        <button id="btn-use-photo" class="btn-primary hidden">
+        <button id="btn-use-photo" class="btn-primary btn-ripple hidden">
           <span>Usar Esta Foto</span>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -132,13 +171,13 @@
     <!-- ==================== TELA 3: SIMULADOR ==================== -->
     <section id="screen-simulator" class="screen">
       <header class="screen-header">
-        <button id="btn-back-simulator" class="btn-icon" aria-label="Voltar">
+        <button id="btn-back-simulator" class="btn-icon btn-ripple" aria-label="Voltar">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
         </button>
         <h2 class="screen-title">Simulador</h2>
-        <button id="btn-reset" class="btn-icon" aria-label="Resetar">
+        <button id="btn-reset" class="btn-icon btn-ripple" aria-label="Resetar">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="1 4 1 10 7 10"/>
             <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
@@ -152,17 +191,20 @@
           <canvas id="main-canvas"></canvas>
           <div class="canvas-loading hidden" id="canvas-loading">
             <div class="spinner"></div>
-            <p>Analisando cabelo...</p>
+            <p id="loading-message">Analisando cabelo...</p>
+            <div class="loading-bar">
+              <div class="loading-bar-fill" id="loading-bar-fill"></div>
+            </div>
           </div>
         </div>
 
         <!-- Tab navigation -->
         <div class="sim-tabs">
-          <button class="sim-tab active" data-tab="color" id="tab-color">
+          <button class="sim-tab active btn-ripple" data-tab="color" id="tab-color">
             <span class="tab-icon">🎨</span>
             <span>Cor</span>
           </button>
-          <button class="sim-tab" data-tab="cut" id="tab-cut">
+          <button class="sim-tab btn-ripple" data-tab="cut" id="tab-cut">
             <span class="tab-icon">✂️</span>
             <span>Corte</span>
           </button>
@@ -177,6 +219,7 @@
           <div class="intensity-control">
             <label class="panel-label" for="intensity-slider">Intensidade</label>
             <input type="range" id="intensity-slider" min="10" max="90" value="50" class="slider-gold" />
+            <span class="intensity-value" id="intensity-value">50%</span>
           </div>
         </div>
 
@@ -184,28 +227,28 @@
         <div class="sim-panel" id="panel-cut">
           <p class="panel-label">Escolha o estilo</p>
           <div class="style-categories">
-            <button class="style-cat-btn active" data-category="all">Todos</button>
-            <button class="style-cat-btn" data-category="curto">Curtos</button>
-            <button class="style-cat-btn" data-category="medio">Médios</button>
-            <button class="style-cat-btn" data-category="longo">Longos</button>
+            <button class="style-cat-btn active btn-ripple" data-category="all">Todos</button>
+            <button class="style-cat-btn btn-ripple" data-category="curto">Curtos</button>
+            <button class="style-cat-btn btn-ripple" data-category="medio">Médios</button>
+            <button class="style-cat-btn btn-ripple" data-category="longo">Longos</button>
           </div>
           <div class="style-gallery" id="style-gallery">
             <!-- Hairstyle cards injected by JS -->
           </div>
           <div class="overlay-controls hidden" id="overlay-controls">
-            <button id="btn-size-down" class="btn-overlay-ctrl" aria-label="Diminuir">
+            <button id="btn-size-down" class="btn-overlay-ctrl btn-ripple" aria-label="Diminuir">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
             </button>
-            <button id="btn-size-up" class="btn-overlay-ctrl" aria-label="Aumentar">
+            <button id="btn-size-up" class="btn-overlay-ctrl btn-ripple" aria-label="Aumentar">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
             </button>
-            <button id="btn-flip" class="btn-overlay-ctrl" aria-label="Espelhar">
+            <button id="btn-flip" class="btn-overlay-ctrl btn-ripple" aria-label="Espelhar">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3M12 20V4"/></svg>
             </button>
-            <button id="btn-reset-overlay" class="btn-overlay-ctrl" aria-label="Resetar posição">
+            <button id="btn-reset-overlay" class="btn-overlay-ctrl btn-ripple" aria-label="Resetar posição">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
             </button>
-            <button id="btn-remove-style" class="btn-overlay-ctrl btn-overlay-remove" aria-label="Remover corte">
+            <button id="btn-remove-style" class="btn-overlay-ctrl btn-overlay-remove btn-ripple" aria-label="Remover corte">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
           </div>
@@ -214,7 +257,7 @@
       </div>
 
       <div class="simulator-footer">
-        <button id="btn-see-result" class="btn-primary">
+        <button id="btn-see-result" class="btn-primary btn-ripple">
           <span>Ver Resultado</span>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -226,7 +269,7 @@
     <!-- ==================== TELA 4: RESULTADO ==================== -->
     <section id="screen-result" class="screen">
       <header class="screen-header">
-        <button id="btn-back-result" class="btn-icon" aria-label="Voltar">
+        <button id="btn-back-result" class="btn-icon btn-ripple" aria-label="Voltar">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
@@ -250,18 +293,25 @@
       </div>
 
       <div class="result-actions">
-        <button id="btn-download" class="btn-secondary">
+        <button id="btn-download" class="btn-secondary btn-ripple">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
           </svg>
           <span>Salvar</span>
         </button>
-        <a id="btn-whatsapp" class="btn-primary btn-whatsapp" href="https://wa.me/5561995012806?text=Ol%C3%A1!%20Fiz%20uma%20simula%C3%A7%C3%A3o%20no%20app%20e%20gostaria%20de%20agendar!" target="_blank" rel="noopener noreferrer">
+        <a id="btn-whatsapp" class="btn-primary btn-whatsapp btn-ripple" href="https://wa.me/5561995012806?text=Ol%C3%A1!%20Fiz%20uma%20simula%C3%A7%C3%A3o%20no%20app%20e%20gostaria%20de%20agendar!" target="_blank" rel="noopener noreferrer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
           </svg>
           <span>Agendar no WhatsApp</span>
         </a>
+        <button id="btn-share" class="btn-secondary btn-ripple hidden">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          <span>Compartilhar</span>
+        </button>
         <button id="btn-try-again" class="btn-text">
           Tentar outra simulação
         </button>
