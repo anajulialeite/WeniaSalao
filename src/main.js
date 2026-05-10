@@ -21,6 +21,16 @@ import {
   HAIRSTYLE_CATALOG,
 } from './modules/hairstyle.js';
 import { downloadResult, shareViaWhatsApp, shareNative } from './modules/share.js';
+import {
+  initToastSystem,
+  showToast,
+  dismissToast,
+  showLoading,
+  updateLoading,
+  dismissLoading,
+  checkCompatibility,
+  showIncompatibleOverlay,
+} from './modules/errors.js';
 
 // ==================== STATE ====================
 const state = {
@@ -35,6 +45,16 @@ const state = {
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize toast system first
+  initToastSystem();
+
+  // Check browser compatibility
+  const compat = checkCompatibility();
+  if (!compat.compatible) {
+    showIncompatibleOverlay(compat.issues);
+    return; // Don't initialize the rest
+  }
+
   setupNavigation();
   setupCaptureHandlers(onPhotoReady);
   setupColorPalette();
@@ -43,6 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setupResultActions();
   setupHairstyleGallery();
   setupCategoryFilters();
+  setupOverlayControls();
+  setupShareButton();
+  setupRippleEffects();
 
   // Initialize hairstyle overlay system
   const canvasContainer = document.getElementById('canvas-container');
@@ -96,6 +119,7 @@ function setupNavigation() {
   // Reset button
   document.getElementById('btn-reset').addEventListener('click', () => {
     resetSimulation();
+    showToast('Simulação resetada', 'info', 2000);
   });
 
   // Try again
@@ -109,12 +133,15 @@ function setupNavigation() {
 // ==================== PHOTO HANDLING ====================
 function onPhotoReady(img) {
   state.currentPhoto = img;
+  showToast('Foto carregada com sucesso!', 'success', 2000);
 }
 
 // ==================== SIMULATOR ====================
 async function prepareSimulator() {
   const canvas = document.getElementById('main-canvas');
   const loading = document.getElementById('canvas-loading');
+  const loadingMsg = document.getElementById('loading-message');
+  const loadingBar = document.getElementById('loading-bar-fill');
   const img = state.currentPhoto;
 
   if (!img) return;
@@ -136,20 +163,34 @@ async function prepareSimulator() {
   // Set canvas dimensions for hairstyle overlay
   setCanvasDimensions(canvas.width, canvas.height);
 
-  // Show loading & run segmentation
+  // Show loading with progress
   loading.classList.remove('hidden');
+  if (loadingMsg) loadingMsg.textContent = 'Carregando modelo de IA...';
+  if (loadingBar) loadingBar.style.width = '10%';
 
   try {
     if (!isSegmenterReady()) {
+      if (loadingMsg) loadingMsg.textContent = 'Baixando modelo de IA...';
+      if (loadingBar) loadingBar.style.width = '30%';
       await initSegmenter();
     }
+
+    if (loadingMsg) loadingMsg.textContent = 'Analisando cabelo...';
+    if (loadingBar) loadingBar.style.width = '70%';
+
     state.hairMask = segmentHair(img, canvas.width, canvas.height);
+
+    if (loadingBar) loadingBar.style.width = '100%';
     console.log('✅ Hair segmentation complete');
+    showToast('Cabelo detectado com sucesso!', 'success', 2500);
   } catch (err) {
     console.error('Segmentation error:', err);
-    alert('Não foi possível analisar o cabelo. Tente outra foto com melhor iluminação.');
+    showToast('Não foi possível analisar o cabelo. Tente outra foto com melhor iluminação.', 'error', 5000);
   } finally {
-    loading.classList.add('hidden');
+    setTimeout(() => {
+      loading.classList.add('hidden');
+      if (loadingBar) loadingBar.style.width = '0%';
+    }, 300);
   }
 }
 
@@ -160,6 +201,8 @@ function resetSimulation() {
   // Reset color swatch selection
   document.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('active'));
   document.getElementById('intensity-slider').value = 50;
+  const intensityVal = document.getElementById('intensity-value');
+  if (intensityVal) intensityVal.textContent = '50%';
 
   // Remove hairstyle overlay
   removeHairstyle();
@@ -255,8 +298,11 @@ function setupColorPalette() {
 
 function setupIntensitySlider() {
   const slider = document.getElementById('intensity-slider');
+  const valueDisplay = document.getElementById('intensity-value');
+
   slider.addEventListener('input', (e) => {
     state.intensity = parseInt(e.target.value, 10);
+    if (valueDisplay) valueDisplay.textContent = `${state.intensity}%`;
     if (state.selectedColor) {
       renderCanvas();
     }
@@ -353,12 +399,12 @@ async function selectHairstyle(hairstyleId, cardElement) {
     await loadHairstyle(hairstyleId, `./hairstyles/${hairstyleId}.png`);
   } catch (err) {
     console.error('Failed to load hairstyle:', err);
-    alert('Não foi possível carregar o estilo. Tente outro.');
+    showToast('Não foi possível carregar o estilo. Tente outro.', 'error');
   }
 }
 
-// Setup remove style button separately (needs to be after DOM)
-document.addEventListener('DOMContentLoaded', () => {
+// ==================== OVERLAY CONTROLS ====================
+function setupOverlayControls() {
   const btnRemove = document.getElementById('btn-remove-style');
   if (btnRemove) {
     btnRemove.addEventListener('click', () => {
@@ -369,7 +415,22 @@ document.addEventListener('DOMContentLoaded', () => {
       renderCanvas();
     });
   }
-});
+}
+
+// ==================== SHARE BUTTON ====================
+function setupShareButton() {
+  const btnShare = document.getElementById('btn-share');
+  if (btnShare) {
+    // Only show if Web Share API is available
+    if (navigator.canShare) {
+      btnShare.classList.remove('hidden');
+    }
+    btnShare.addEventListener('click', () => {
+      const canvas = state.resultCanvas || state.originalCanvas;
+      shareNative(canvas);
+    });
+  }
+}
 
 // ==================== RESULT SCREEN ====================
 function prepareResult() {
@@ -447,5 +508,25 @@ function setupResultActions() {
   document.getElementById('btn-download').addEventListener('click', () => {
     const canvas = state.resultCanvas || state.originalCanvas;
     downloadResult(canvas);
+    showToast('Imagem salva!', 'success', 2000);
+  });
+}
+
+// ==================== RIPPLE EFFECTS ====================
+function setupRippleEffects() {
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-ripple');
+    if (!btn) return;
+
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple-effect';
+    ripple.style.width = ripple.style.height = `${size}px`;
+    ripple.style.left = `${e.clientX - rect.left - size / 2}px`;
+    ripple.style.top = `${e.clientY - rect.top - size / 2}px`;
+
+    btn.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove());
   });
 }
