@@ -1,6 +1,10 @@
 # WeniaSalao
 
-<img src="AJ - Criar e desenvolver (sem símbolo do Gemini).png" alt="Logo" align="center" width="65" height="65">
+<img src="AJ - Criar e desenvolver (sem símbolo do Gemini).png" alt="Logo" align="left" width="65" height="65">
+<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nodejs/nodejs-original.svg" align="left" width="50" height="50"/>
+<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/javascript/javascript-original.svg" align="left" width="50" height="50"/>
+<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/css3/css3-original.svg" align="left" width="50" height="50"/>
+<img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/html5/html5-original.svg" align="center" width="50" height="50"/>
 
 Esse é o site da minha cliente para poder divulgar o seu trabalho e visualizar corte de cabelo ou pintura em tempo real. Um diferencial no salão de beleza onde a cliente pode se ver usando um novo visual sem arrependimentos.
 
