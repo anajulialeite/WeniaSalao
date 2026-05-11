@@ -154,6 +154,12 @@ async function prepareSimulator() {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
+  // Free previous original canvas memory
+  if (state.originalCanvas) {
+    state.originalCanvas.width = 0;
+    state.originalCanvas.height = 0;
+  }
+
   // Save original canvas reference
   state.originalCanvas = document.createElement('canvas');
   state.originalCanvas.width = canvas.width;
@@ -215,6 +221,12 @@ function resetSimulation() {
     const canvas = document.getElementById('main-canvas');
     const ctx = canvas.getContext('2d');
     ctx.drawImage(state.originalCanvas, 0, 0);
+    
+    // Free result canvas memory
+    if (state.resultCanvas) {
+      state.resultCanvas.width = 0;
+      state.resultCanvas.height = 0;
+    }
     state.resultCanvas = null;
   }
 }
@@ -232,21 +244,21 @@ function renderCanvas() {
   const w = mainCanvas.width;
   const h = mainCanvas.height;
 
+  let newResultCanvas = null;
+
   // Layer 1: Start with original or color-modified image
   if (state.selectedColor && state.hairMask) {
-    const coloredCanvas = applyHairColor(
+    newResultCanvas = applyHairColor(
       state.originalCanvas,
       state.hairMask,
       state.selectedColor.color,
       state.intensity
     );
     ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(coloredCanvas, 0, 0);
-    state.resultCanvas = coloredCanvas;
+    ctx.drawImage(newResultCanvas, 0, 0);
   } else {
     ctx.clearRect(0, 0, w, h);
     ctx.drawImage(state.originalCanvas, 0, 0);
-    state.resultCanvas = null;
   }
 
   // Layer 2: Hairstyle overlay
@@ -261,8 +273,21 @@ function renderCanvas() {
     compositeCanvas.height = h;
     const compCtx = compositeCanvas.getContext('2d');
     compCtx.drawImage(mainCanvas, 0, 0);
-    state.resultCanvas = compositeCanvas;
+    
+    // Free the intermediate colored canvas since composite is the new final
+    if (newResultCanvas) {
+      newResultCanvas.width = 0;
+      newResultCanvas.height = 0;
+    }
+    newResultCanvas = compositeCanvas;
   }
+
+  // Free previous result canvas to prevent memory leak
+  if (state.resultCanvas && state.resultCanvas !== newResultCanvas) {
+    state.resultCanvas.width = 0;
+    state.resultCanvas.height = 0;
+  }
+  state.resultCanvas = newResultCanvas;
 }
 
 /**

@@ -4,6 +4,24 @@
  * Features: feathered mask edges, multi-pass blending for natural results.
  */
 
+const offscreen = {
+  blur: null,
+  rawMask: null,
+  color: null
+};
+
+function getOffscreenCanvas(name, w, h) {
+  if (!offscreen[name]) {
+    offscreen[name] = document.createElement('canvas');
+  }
+  const canvas = offscreen[name];
+  if (canvas.width !== w) canvas.width = w;
+  if (canvas.height !== h) canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  return { canvas, ctx };
+}
+
 /**
  * Apply Gaussian-like blur to a mask for softer edges (feathering).
  * Uses multiple box blurs via canvas for performance.
@@ -15,10 +33,7 @@ function featherMask(maskCanvas, radius = 3) {
   const w = maskCanvas.width;
   const h = maskCanvas.height;
 
-  const blurCanvas = document.createElement('canvas');
-  blurCanvas.width = w;
-  blurCanvas.height = h;
-  const blurCtx = blurCanvas.getContext('2d');
+  const { canvas: blurCanvas, ctx: blurCtx } = getOffscreenCanvas('blur', w, h);
 
   // Apply CSS filter blur (fast, GPU-accelerated)
   blurCtx.filter = `blur(${radius}px)`;
@@ -49,10 +64,7 @@ export function applyHairColor(sourceCanvas, hairMask, color, intensity) {
   resultCtx.drawImage(sourceCanvas, 0, 0);
 
   // Create raw mask canvas
-  const rawMaskCanvas = document.createElement('canvas');
-  rawMaskCanvas.width = width;
-  rawMaskCanvas.height = height;
-  const rawMaskCtx = rawMaskCanvas.getContext('2d');
+  const { canvas: rawMaskCanvas, ctx: rawMaskCtx } = getOffscreenCanvas('rawMask', width, height);
   rawMaskCtx.putImageData(hairMask, 0, 0);
 
   // Feather the mask edges for smoother transitions
@@ -60,10 +72,7 @@ export function applyHairColor(sourceCanvas, hairMask, color, intensity) {
   const maskCanvas = featherMask(rawMaskCanvas, featherRadius);
 
   // Create color layer canvas
-  const colorCanvas = document.createElement('canvas');
-  colorCanvas.width = width;
-  colorCanvas.height = height;
-  const colorCtx = colorCanvas.getContext('2d');
+  const { canvas: colorCanvas, ctx: colorCtx } = getOffscreenCanvas('color', width, height);
 
   // Fill with the chosen color
   colorCtx.fillStyle = color;
