@@ -26,7 +26,7 @@ export async function initSegmenter() {
     segmenter = await ImageSegmenter.createFromOptions(vision, {
       baseOptions: {
         modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite',
-        delegate: 'GPU',
+        delegate: 'CPU', // Using CPU instead of GPU to prevent WebGL Out Of Memory crashes on mobile Safari
       },
       runningMode: 'IMAGE',
       outputCategoryMask: true,
@@ -34,31 +34,9 @@ export async function initSegmenter() {
     });
 
     isInitialized = true;
-    console.log('✅ MediaPipe segmenter initialized');
+    console.log('✅ MediaPipe segmenter initialized (CPU)');
   } catch (err) {
     console.error('❌ Failed to initialize segmenter:', err);
-    // Try CPU fallback
-    try {
-      const vision = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-      );
-
-      segmenter = await ImageSegmenter.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite',
-          delegate: 'CPU',
-        },
-        runningMode: 'IMAGE',
-        outputCategoryMask: true,
-        outputConfidenceMasks: false,
-      });
-
-      isInitialized = true;
-      console.log('✅ MediaPipe segmenter initialized (CPU fallback)');
-    } catch (fallbackErr) {
-      console.error('❌ CPU fallback also failed:', fallbackErr);
-      throw fallbackErr;
-    }
   } finally {
     isInitializing = false;
   }
@@ -123,7 +101,15 @@ export function segmentHair(imageSource, width, height) {
   // Close the segmentation result to free memory
   result.close();
 
-  return outCtx.getImageData(0, 0, width, height);
+  const finalImageData = outCtx.getImageData(0, 0, width, height);
+
+  // Explicitly free intermediate canvases
+  maskCanvas.width = 0;
+  maskCanvas.height = 0;
+  outputCanvas.width = 0;
+  outputCanvas.height = 0;
+
+  return finalImageData;
 }
 
 /**
